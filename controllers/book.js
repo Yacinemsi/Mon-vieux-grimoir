@@ -109,11 +109,14 @@ exports.rateBook = async (req, res, next) => {
       .save()
       .then((newBook) => {
         console.log("newBook rating", newBook);
-        res.status(200).json(newbook);
+        res.status(200).json(newBook); // Send the response here if the save is successful.
       })
-      .catch((error) => res.status(401).json({ error }));
+      .catch((error) => {
+        console.error("Error while saving the book: ", error);
+        res.status(401).json({ error });
+      });
 
-    res.status(200).json({ message: "Book rated successfully" });
+    // Removed the extra response after saving the book.
   } catch (error) {
     res.status(500).json({ error });
   }
