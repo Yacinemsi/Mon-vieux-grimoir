@@ -4,11 +4,9 @@ const fs = require("fs");
 exports.createBook = (req, res, next) => {
   const bookObject = JSON.parse(req.body.book);
   delete bookObject._id;
-  delete bookObject._userId;
-  console.log(bookObject);
   const book = new Book({
     ...bookObject,
-    userId: req.auth.userId,
+    userId: req.auth.userId, // Assurez-vous que req.auth est bien défini par un middleware d'authentification
     imageUrl: `${req.protocol}://${req.get("host")}/images/${
       req.file.filename
     }`,
@@ -16,13 +14,8 @@ exports.createBook = (req, res, next) => {
 
   book
     .save()
-    .then(() => {
-      res.status(201).json({ message: "Objet enregistré !" });
-      console.log("Objet enregistré !");
-    })
-    .catch((error) => {
-      res.status(400).json({ error });
-    });
+    .then(() => res.status(201).json({ message: "Objet enregistré !" }))
+    .catch((error) => res.status(400).json({ error }));
 };
 
 exports.modifyBook = (req, res, next) => {
@@ -35,20 +28,17 @@ exports.modifyBook = (req, res, next) => {
       }
     : { ...req.body };
 
-  delete bookObject._userId;
-  book
-    .findOne({ _id: req.params.id })
+  Book.findOne({ _id: req.params.id })
     .then((book) => {
-      if (book.userId != req.auth.userId) {
+      if (book.userId.toString() !== req.auth.userId) {
         res.status(401).json({ message: "Not authorized" });
       } else {
-        book
-          .updateOne(
-            { _id: req.params.id },
-            { ...bookObject, _id: req.params.id }
-          )
+        Book.updateOne(
+          { _id: req.params.id },
+          { ...bookObject, _id: req.params.id }
+        )
           .then(() => res.status(200).json({ message: "Objet modifié!" }))
-          .catch((error) => res.status(401).json({ error }));
+          .catch((error) => res.status(400).json({ error }));
       }
     })
     .catch((error) => {
@@ -57,26 +47,20 @@ exports.modifyBook = (req, res, next) => {
 };
 
 exports.deleteBook = (req, res, next) => {
-  book
-    .findOne({ _id: req.params.id })
+  Book.findOne({ _id: req.params.id })
     .then((book) => {
-      if (book.userId != req.auth.userId) {
+      if (book.userId.toString() !== req.auth.userId) {
         res.status(401).json({ message: "Not authorized" });
       } else {
         const filename = book.imageUrl.split("/images/")[1];
         fs.unlink(`images/${filename}`, () => {
-          book
-            .deleteOne({ _id: req.params.id })
-            .then(() => {
-              res.status(200).json({ message: "Objet supprimé !" });
-            })
-            .catch((error) => res.status(401).json({ error }));
+          Book.deleteOne({ _id: req.params.id })
+            .then(() => res.status(200).json({ message: "Objet supprimé !" }))
+            .catch((error) => res.status(400).json({ error }));
         });
       }
     })
-    .catch((error) => {
-      res.status(500).json({ error });
-    });
+    .catch((error) => res.status(500).json({ error }));
 };
 
 exports.getOneBook = (req, res, next) => {
@@ -89,4 +73,48 @@ exports.getAllBook = (req, res, next) => {
   Book.find()
     .then((books) => res.status(200).json(books))
     .catch((error) => res.status(400).json({ error }));
+};
+
+exports.rateBook = async (req, res, next) => {
+  console.log(req.body);
+  const { userId, rating } = req.body;
+  try {
+    const book = await Book.findOne({ _id: req.params.id });
+    if (!book) {
+      return res.status(404).json({ error: "Book not found" });
+    }
+
+    const userRating = book.ratings.find(
+      (rating) => rating.userId === req.auth.userId
+    );
+
+    if (userRating) {
+      return res
+        .status(400)
+        .json({ error: "User has already rated this book" });
+    }
+
+    const newRating = {
+      userId,
+      grade: rating,
+    };
+
+    book.ratings.push(newRating);
+
+    book.averageRating =
+      book.ratings.reduce((acc, curr) => acc + curr.grade, 0) /
+      book.ratings.length;
+
+    await book
+      .save()
+      .then((newBook) => {
+        console.log("newBook rating", newBook);
+        res.status(200).json(newbook);
+      })
+      .catch((error) => res.status(401).json({ error }));
+
+    res.status(200).json({ message: "Book rated successfully" });
+  } catch (error) {
+    res.status(500).json({ error });
+  }
 };
