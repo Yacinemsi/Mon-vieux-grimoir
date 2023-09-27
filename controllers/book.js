@@ -104,19 +104,18 @@ exports.rateBook = async (req, res, next) => {
     book.averageRating =
       book.ratings.reduce((acc, curr) => acc + curr.grade, 0) /
       book.ratings.length;
+    book.averageRating = book.averageRating.toFixed(2);
 
     await book
       .save()
       .then((newBook) => {
         console.log("newBook rating", newBook);
-        res.status(200).json(newBook); // Send the response here if the save is successful.
+        res.status(200).json(newBook);
       })
       .catch((error) => {
         console.error("Error while saving the book: ", error);
         res.status(401).json({ error });
       });
-
-    // Removed the extra response after saving the book.
   } catch (error) {
     res.status(500).json({ error });
   }
