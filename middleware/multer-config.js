@@ -15,8 +15,6 @@ const diskStorage = multer.diskStorage({
 
 const storage = multer({ storage: diskStorage }).single("image");
 
-// ... [rest of your code]
-
 // Redimensionner l'image
 const resize = (req, res, next) => {
   if (!req.file) {
