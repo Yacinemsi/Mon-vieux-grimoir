@@ -62,6 +62,4 @@ const resize = (req, res, next) => {
     });
 };
 
-// ... [rest of your code]
-
 module.exports = { storage, resize };
